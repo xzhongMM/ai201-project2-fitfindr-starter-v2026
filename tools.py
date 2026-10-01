@@ -20,12 +20,75 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
-import config  # noqa: F401 — you'll use this in search_listings
+import re
+
+import config
 from generate import generate
 from utils.data_loader import load_listings
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
+_STOPWORDS = {"a", "an", "and", "the", "for", "with", "under", "over", "in", "of"}
+
+
+def _stem(word: str) -> str:
+    """Crude plural fold so 'sneakers' matches 'sneaker' and 'jeans' matches 'jean'."""
+    return word[:-1] if len(word) > 3 and word.endswith("s") and not word.endswith("ss") else word
+
+
+def keywords(text: str) -> set[str]:
+    """Lowercase words worth matching on, stopwords removed, plurals folded."""
+    words = re.findall(r"[a-z0-9']+", (text or "").lower())
+    return {_stem(w) for w in words if w not in _STOPWORDS and len(w) > 1}
+
+
+def _size_tokens(size: str) -> set[str]:
+    """
+    Break a size string into the tokens it can match on.
+
+      "S/M"            → {"S", "M"}
+      "XL (oversized)" → {"XL"}               parenthetical dropped
+      "W30 L30"        → {"W30 L30", "W30", "L30"}
+      "US 8"           → {"US 8", "8"}        but never a bare "US"
+    Whole tokens only, so "S" never matches "US 9" and "L" never matches "XL".
+    """
+    cleaned = re.sub(r"\([^)]*\)", " ", size or "")  # drop parentheticals
+    tokens = set()
+    for part in cleaned.split("/"):
+        part = re.sub(r"\s+", " ", part).strip().upper()
+        if not part:
+            continue
+        tokens.add(part)
+        pieces = part.split(" ")
+        if len(pieces) > 1 and not part.startswith("ONE SIZE"):
+            tokens.update(p for p in pieces if p != "US")
+    return tokens
+
+
+def _size_matches(wanted: str, listing_size: str) -> bool:
+    """True when no size was asked for, the listing is One Size, or a token is shared."""
+    if not wanted:
+        return True
+    listing_tokens = _size_tokens(listing_size)
+    if any(token.startswith("ONE SIZE") for token in listing_tokens):
+        return True
+    return bool(_size_tokens(wanted) & listing_tokens)
+
+
+def _score(listing: dict, wanted: set[str]) -> int:
+    """
+    Keyword overlap, weighted by where the word appears.
+    Title and style tags count 3, category 2, colors/brand 2, description 1.
+    """
+    fields = [
+        (keywords(listing.get("title", "")), 3),
+        (keywords(" ".join(listing.get("style_tags") or [])), 3),
+        (keywords(listing.get("category", "")), 2),
+        (keywords(" ".join(listing.get("colors") or [])), 2),
+        (keywords(listing.get("brand") or ""), 2),
+        (keywords(listing.get("description", "")), 1),
+    ]
+    return sum(weight * len(wanted & words) for words, weight in fields)
 
 def search_listings(
     description: str,
@@ -78,8 +141,23 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    wanted = keywords(description)
+    if not wanted:
+        return []
+
+    scored = []
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+        if not _size_matches(size, listing.get("size", "")):
+            continue
+        score = _score(listing, wanted)
+        if score > 0:
+            scored.append((score, listing))
+
+    # Highest score first; cheaper wins a tie.
+    scored.sort(key=lambda pair: (-pair[0], pair[1]["price"]))
+    return [listing for _, listing in scored[: config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────

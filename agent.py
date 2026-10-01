@@ -13,10 +13,107 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 
+import re
+
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
+
+
+# ── query parsing (regex) ─────────────────────────────────────────────────────
+
+# "under $30", "below 30", "less than $30.50", "max $30", "up to $30", "<$30"
+_PRICE_BEFORE = re.compile(
+    r"(?:under|below|less\s+than|no\s+more\s+than|max(?:imum)?|up\s+to|at\s+most|<=?)"
+    r"\s*\$?\s*(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+# "$30 or less", "$30 max", "$30 and under"
+_PRICE_AFTER = re.compile(
+    r"\$\s*(\d+(?:\.\d+)?)\s*(?:or\s+less|max|and\s+under|or\s+under)",
+    re.IGNORECASE,
+)
+# "size M", "size: xl", "in size 8", "size W30", "size 8.5"
+_SIZE = re.compile(r"(?:in\s+)?size\s*:?\s*([a-z0-9][a-z0-9./]*)", re.IGNORECASE)
+
+_SIZE_WORDS = {
+    "xxs": "XXS", "xs": "XS", "small": "S", "medium": "M", "large": "L",
+    "xl": "XL", "xxl": "XXL",
+}
+
+# Conversational filler that isn't part of what the user wants.
+_FILLER = re.compile(
+    r"\b(?:i'?m|i\s+am|i\s+want|i'?d\s+like|looking\s+for|searching\s+for|"
+    r"find\s+me|show\s+me|can\s+you\s+find|please|some|a|an|any)\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_size(raw: str) -> str:
+    """Map what people type onto the size strings the listings use."""
+    s = raw.strip().rstrip(".,")
+    if s.lower() in _SIZE_WORDS:
+        return _SIZE_WORDS[s.lower()]
+    # A bare number like "8" or "8.5" is a shoe size; the data writes "US 8".
+    if re.fullmatch(r"\d{1,2}(?:\.5)?", s) and float(s) <= 15:
+        return f"US {s}"
+    return s.upper()
+
+
+def parse_query(query: str) -> dict:
+    """
+    Pull description, size and max_price out of a plain-language query.
+
+    Regex, no model call: the three things we need have predictable shapes
+    ("under $30", "size M"), and a parser we can test without quota is one we
+    can trust when a search comes back empty.
+
+    Returns {"description": str, "size": str | None, "max_price": float | None}.
+    """
+    text = query or ""
+    max_price = None
+    size = None
+
+    for pattern in (_PRICE_BEFORE, _PRICE_AFTER):
+        m = pattern.search(text)
+        if m:
+            max_price = float(m.group(1))
+            text = text[: m.start()] + " " + text[m.end():]
+            break
+
+    m = _SIZE.search(text)
+    if m:
+        size = _normalize_size(m.group(1))
+        text = text[: m.start()] + " " + text[m.end():]
+
+    text = _FILLER.sub(" ", text)
+    text = re.sub(r"[,;]+", " ", text)
+    description = re.sub(r"\s+", " ", text).strip()
+
+    return {"description": description, "size": size, "max_price": max_price}
+
+
+def _empty_search_message(parsed: dict) -> str:
+    """Say what the user could change, based on which filters they used."""
+    asked = f"'{parsed['description']}'" if parsed["description"] else "your search"
+    if parsed["size"]:
+        asked += f" in size {parsed['size']}"
+    if parsed["max_price"] is not None:
+        asked += f" under ${parsed['max_price']:g}"
+
+    tips = []
+    if parsed["max_price"] is not None:
+        tips.append("raise your budget")
+    if parsed["size"]:
+        tips.append("drop the size or try a neighbouring one")
+    tips.append("use broader words (e.g. 'jacket' instead of 'designer bomber jacket')")
+
+    if len(tips) > 1:
+        tip_text = ", ".join(tips[:-1]) + ", or " + tips[-1]
+    else:
+        tip_text = tips[0]
+    return f"Nothing matched {asked}. Try to {tip_text}."
 
 
 # ── session state ─────────────────────────────────────────────────────────────
@@ -106,10 +203,51 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    searched = False   # search_results starts as [], so track "ran" separately
+    count = 0
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
-    return session
+    while True:
+        count += 1
+        trace.check_iterations(count)
+
+        # Each pass looks at the session and picks the next step from it.
+
+        if not session["parsed"]:
+            session["parsed"] = parse_query(query)
+            continue
+
+        if not searched:
+            p = session["parsed"]
+            session["search_results"] = search_listings(
+                p["description"], size=p["size"], max_price=p["max_price"]
+            )
+            searched = True
+
+            # ── THE BRANCH ──────────────────────────────────────────────────
+            # Empty results: explain what to change and stop. suggest_outfit
+            # and create_fit_card never run, so fit_card stays None.
+            if not session["search_results"]:
+                session["error"] = _empty_search_message(p)
+                return session
+            continue
+
+        if session["selected_item"] is None:
+            session["selected_item"] = session["search_results"][0]
+            continue
+
+        if session["outfit_suggestion"] is None:
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"], session["wardrobe"]
+            )
+            continue
+
+        if session["fit_card"] is None:
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"]
+            )
+            continue
+
+        return session
 
 
 # ── running it directly ───────────────────────────────────────────────────────
