@@ -117,26 +117,23 @@
 
 **One full query**
 
-```
-$ python app.py ask '...'
-
-```
+Deferred until the three standalone tools are wired into the planning loop.
 
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+$ ./.venv/bin/python -c "from tools import search_listings; print([(x['title'], x['size'], x['price']) for x in search_listings('graphic tee', size='M', max_price=30)])"
+[('Y2K Baby Tee — Butterfly Print', 'S/M', 18.0), ('Mesh Long-Sleeve Top — Black', 'S/M', 15.0)]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
-
+$ ./.venv/bin/python -c "import json; from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(json.dumps(suggest_outfit(load_listings()[0], get_example_wardrobe()), ensure_ascii=False))"
+"Outfit One\nPair the Vintage Levi's 501 Jeans — Medium Wash with the White ribbed tank top, the Vintage black denim jacket, and the Chunky white sneakers. Add the Brown leather belt to finish the waist.\nWhy it works: Double denim creates a classic vintage look, while the white tank and fresh sneakers keep it bright and casual.\n\nOutfit Two\nCombine the Vintage Levi's 501 Jeans — Medium Wash with the Oversized grey crewneck sweatshirt and the Black combat boots. \nWhy it works: The ultra-cozy, oversized grey sweatshirt contrasts the structured straight-leg denim, and the combat boots add a tough, streetwear edge."
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+$ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit_card; from utils.data_loader import load_listings; item = load_listings()[0]; print(json.dumps([create_fit_card('jeans and white sneakers', item) for _ in range(3)]))"
+["nothing beats a broken-in pair of 501s and fresh white sneakers for the ultimate off-duty look. snagged these vintage levis for $38 and they fit like an absolute dream. just dropped them on my depop if you need your new go-to denim.", "nothing beats the effortless look of vintage 501s with a fresh pair of white sneakers for that ultimate casual weekend fit. these have the best knee fading already broken in for you. just listed this W30 pair on my depop for $38 and they're ready for a new home.", "Nothing beats a broken-in pair of vintage Levi's 501s, especially with that ideal medium wash fade at the knees. Just threw them on with crisp white sneakers for the easiest casual streetwear fit. Grabbed these on depop for $38 and I honestly might never wear hard pants again."]
 ```
 
 ---
