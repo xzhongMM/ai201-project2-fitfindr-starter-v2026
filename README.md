@@ -39,9 +39,7 @@
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
-
-
+FitFindr takes a plain-language request for a secondhand clothing item, including optional size and budget filters. It searches and ranks the local listing data, then stops with suggestions for changing the search if nothing matches. When it finds an item, it uses the user's wardrobe to suggest outfits and generates a short fit-card caption for the find.
 
 ---
 
@@ -117,7 +115,31 @@
 
 **One full query**
 
-Deferred until the three standalone tools are wired into the planning loop.
+```
+$ ./.venv/bin/python app.py ask 'vintage graphic tee max 30'
+     Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
+
+     Outfit:   Outfit 1
+Pair the Graphic Tee — 2003 Tour Bootleg Style with the Baggy straight-leg jeans, dark wash and the Black combat boots. Finish with the Black crossbody bag.
+This leans into the Y2K streetwear vibe of the tee with a heavy, grunge-inspired silhouette from head to toe.
+
+Outfit 2
+Tuck the Graphic Tee — 2003 Tour Bootleg Style into the Wide-leg khaki trousers, add the Brown leather belt, and wear the Chunky white sneakers.
+The tan trousers tone down the intense black of the vintage tee while keeping the look grounded and effortless.
+
+     Fit card: Finally found the holy grail of Y2K tour tees and it’s already got that perfect worn-in fade. It’s up on my depop for $24, styled here with baggy denim and combat boots for full-on 2003 grunge energy.
+
+0 model calls this session, 2 served from cache
+```
+
+**Empty-search path**
+
+```
+$ ./.venv/bin/python app.py ask 'designer ballgown size XXS max 5'
+     Nothing matched 'designer ballgown' in size XXS under $5. Try to raise your budget, drop the size or try a neighbouring one, or use broader words (e.g. 'jacket' instead of 'designer bomber jacket').
+
+0 model calls this session
+```
 
 **The three tools, tested one at a time**
 
@@ -149,15 +171,15 @@ $ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Could someone check that my state criterion without asking what I meant? What observable proves that the item found by search is the one sent to the outfit tool?
+- *What came back:* The useful check is to compare the listing `id` stored in `session["selected_item"]` with the `id` actually passed to `suggest_outfit`. For model-written cards, check stable facts and length instead of requiring identical wording.
+- *What I changed:* I wrote a 5-of-5 ID handoff criterion and a fit-card criterion checking the item's price, platform, and sentence count while allowing the wording to vary.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Check each tool from the terminal, including what it does when search finds nothing, the wardrobe is empty, or there is no outfit to caption.
+- *What came back:* Search returned `[]` for no match; an empty wardrobe still received general styling advice; and an empty outfit returned the fixed no-card message. Three uncached captions for one item had different wording.
+- *What I changed:* I kept those empty behaviors in the tool inventory and pasted the standalone commands and observed outputs into Sample Run, disabling the cache for the three-caption check.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
