@@ -220,11 +220,17 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             p = session["parsed"]
             from mcp_client import call_tool
 
-            session["search_results"] = call_tool("search_listings", {
+            inputs = {
                 "description": p["description"],
                 "size": p["size"],
                 "max_price": p["max_price"],
-            })
+            }
+            session["search_results"] = call_tool("search_listings", inputs)
+            trace.step(
+                "search_listings (via MCP)",
+                inputs=inputs,
+                returned=session["search_results"],
+            )
             searched = True
 
             # ── THE BRANCH ──────────────────────────────────────────────────
@@ -232,6 +238,12 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             # and create_fit_card never run, so fit_card stays None.
             if not session["search_results"]:
                 session["error"] = _empty_search_message(p)
+                trace.step(
+                    "search_results branch",
+                    inputs={"count": 0},
+                    returned=session["error"],
+                    note="empty search, stopping",
+                )
                 return session
             continue
 
@@ -240,14 +252,44 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             continue
 
         if session["outfit_suggestion"] is None:
-            session["outfit_suggestion"] = suggest_outfit(
-                session["selected_item"], session["wardrobe"]
+            inputs = {
+                "new_item": session["selected_item"],
+                "wardrobe": session["wardrobe"],
+            }
+            try:
+                session["outfit_suggestion"] = suggest_outfit(**inputs)
+            except ModelUnavailable as exc:
+                trace.step("suggest_outfit", inputs=inputs, returned=str(exc))
+                session["error"] = (
+                    f"The model couldn't generate styling advice: {exc} "
+                    "Check your API key and internet connection, then try again."
+                )
+                return session
+            trace.step(
+                "suggest_outfit",
+                inputs=inputs,
+                returned=session["outfit_suggestion"],
             )
             continue
 
         if session["fit_card"] is None:
-            session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"], session["selected_item"]
+            inputs = {
+                "outfit": session["outfit_suggestion"],
+                "new_item": session["selected_item"],
+            }
+            try:
+                session["fit_card"] = create_fit_card(**inputs)
+            except ModelUnavailable as exc:
+                trace.step("create_fit_card", inputs=inputs, returned=str(exc))
+                session["error"] = (
+                    f"The model couldn't write the fit card: {exc} "
+                    "Check your API key and internet connection, then try again."
+                )
+                return session
+            trace.step(
+                "create_fit_card",
+                inputs=inputs,
+                returned=session["fit_card"],
             )
             continue
 

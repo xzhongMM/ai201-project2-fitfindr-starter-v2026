@@ -263,14 +263,34 @@ that produced it:
 **Happy path**
 
 ```
-
+[1] search_listings (via MCP)
+     in:  {description='vintage graphic tee', size=None, max_price=30.0}
+     out: 10 items: Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey, Y2K Baby Tee — Butterfly Print … +7 more
+[2] suggest_outfit
+     in:  {new_item=Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop), wardrobe={items=[10 items]}}
+     out: Outfit 1 Pair the Graphic Tee — 2003 Tour Bootleg Style with the Baggy straight-leg jeans, dark wash and the B…
+[3] create_fit_card
+     in:  {outfit='Outfit 1\nPair the Graphic Tee — 2003 Tour Bootleg Style with the Baggy straight-leg jeans, dark wash…
+     out: Finally found the holy grail of Y2K tour tees and it’s already got that perfect worn-in fade. It’s up on my de…
 ```
 
 **Empty search**
 
 ```
-
+[1] search_listings (via MCP)
+     in:  {description='quantum velvet moon boots', size='QQQ', max_price=0.0}
+     out: [] (empty)
+[2] search_results branch
+     in:  {count=0}
+     out: Nothing matched 'quantum velvet moon boots' in size QQQ under $0. Try to raise your budget, drop the size or t…
+     →    empty search, stopping
 ```
+
+**Milestone 2 failure checks**
+
+- **Empty search:** `python app.py ask 'quantum velvet moon boots size QQQ under $0'` returned: “Nothing matched 'quantum velvet moon boots' in size QQQ under $0. Try to raise your budget, drop the size or try a neighbouring one, or use broader words (e.g. 'jacket' instead of 'designer bomber jacket').” No model calls.
+- **Empty wardrobe:** `python app.py ask 'retro track jacket size M' --empty-wardrobe` returned general advice beginning “Outfit One: Casual Weekend. Pair the track jacket with a plain white vintage t-shirt, relaxed-fit mid-wash blue denim jeans, and low-profile retro sneakers...” followed by a second outfit and a fit card. It completed with 2 model calls.
+- **Model unavailable:** With one character of the `.env` key temporarily changed and cache disabled, the novel query `retro windbreaker in size L under $60` initially escaped as `ModelUnavailable: The model rejected your API key...`. After adding the agent handler, the same invalid-key test returned: “The model couldn't generate styling advice: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com. Check your API key and internet connection, then try again.” No raw traceback; the original `.env` was restored.
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
 behaved differently afterwards. If the rewire didn't work, say exactly where it

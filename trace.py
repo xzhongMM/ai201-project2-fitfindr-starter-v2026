@@ -84,8 +84,17 @@ def _short(value, limit: int = 110) -> str:
     if isinstance(value, dict):
         if "title" in value:
             return f"{value.get('title')} (${value.get('price')}, {value.get('platform')})"
-        keys = ", ".join(list(value)[:6])
-        return f"dict with keys: {keys}"
+        parts = []
+        for key, item in list(value.items())[:6]:
+            if isinstance(item, dict):
+                shown = _short(item, limit=36)
+            elif isinstance(item, list):
+                shown = f"[{len(item)} items]"
+            else:
+                shown = repr(item)
+            parts.append(f"{key}={shown}")
+        text = "{" + ", ".join(parts) + "}"
+        return text if len(text) <= limit else text[:limit] + "…"
 
     text = str(value).replace("\n", " ")
     return text if len(text) <= limit else text[:limit] + "…"
