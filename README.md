@@ -204,7 +204,7 @@ $ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit
 | 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 2. Impossible query stops before tool 2 | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 3. Session item matches item passed to outfit tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
-| 4. Fit card includes exact price/platform once and has 2-4 sentences | 4 of 5 | PASS | FAIL | PASS | FAIL | PASS | MISSED (3/5) |
+| 4. Fit card includes exact price/platform once and has 2-4 sentences | 4 of 5 | PASS | FAIL | PASS | FAIL | FAIL | MISSED (2/5) |
 | 5. Over-budget query returns no listing over the limit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
 **Real output from one try**, captured in `results/run_2026-10-17_2355_before.md` by `run_eval.py::run_once`, which calls `agent.py::run_agent`. The trace lines are recorded by `trace.py::step`.
@@ -280,13 +280,15 @@ search_results (4): lst_002 Y2K Baby Tee — Butterfly Print ($18.0, depop); lst
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query completes all three tools and returns a fit card | 4 of 5 | MET (5/5) | All five runs called search, outfit suggestion, and fit-card creation and returned a non-empty fit card. |
+| 2 | An impossible query stops before `suggest_outfit` and names what to change | 5 of 5 | MET (5/5) | Every run had zero search results, recorded the actionable empty-search message, and stopped before the second tool. |
+| 3 | Session-selected item ID matches the ID passed to outfit suggestion | 5 of 5 | MET (5/5) | In all five traces, `selected_item` was `lst_007`, and the `suggest_outfit` input also showed `lst_007`. |
+| 4 | For five different listings, exact price and platform each appear once and the card has 2-4 sentences | 4 of 5 | MISSED (2/5) | Only tries 1 and 3 meet every check. Tries 2 and 4 change exact platform capitalization; try 5 has only one sentence. |
+| 5 | No listing returned by a max-price search exceeds its limit | 5 of 5 | MET (5/5) | All five searches used a $20 ceiling, and every returned result listed in the report cost $20 or less. |
 
 **Diagnoses**
+
+Criterion 4 missed at the `create_fit_card` model-output step, not in search, session state, or the loop branch. Two outputs changed the platform's exact casing: try 2 wrote `thredup` for the listing value `thredUp`, and try 4 wrote `Depop` for `depop`. Try 5 included the exact `$27` and `poshmark` once each, but returned one sentence instead of the required 2-4. The prompt in `tools.py::create_fit_card` requests the exact platform and sentence range, but the model did not reliably follow both constraints; the code returns its response without checking or repairing those constraints. These are three distinct failed cards from one mechanism: formatting requirements are delegated entirely to generated prose. The price was correct in all five cards. I am not revising criterion 4 because it is measurable and these runs genuinely missed it.
 
 
 
