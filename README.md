@@ -181,6 +181,12 @@ $ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit
 - *What came back:* Search returned `[]` for no match; an empty wardrobe still received general styling advice; and an empty outfit returned the fixed no-card message. Three uncached captions for one item had different wording.
 - *What I changed:* I kept those empty behaviors in the tool inventory and pasted the standalone commands and observed outputs into Sample Run, disabling the cache for the three-caption check.
 
+**Moment 3**
+
+- *What I asked for:* Compare the five before-run fit cards against the exact price, platform, and sentence-count criterion, then suggest one change tied to the misses.
+- *What came back:* Three of five cards failed: two changed platform capitalization, and one used only one sentence. The failures came from the model-output step in `create_fit_card`, where the prompt requested details but did not strongly constrain their form.
+- *What I changed:* I changed only that prompt to require exactly three sentences and verbatim, case-sensitive price and platform strings. In the after run all five cards passed those checks.
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
@@ -343,6 +349,9 @@ behaved differently afterwards. If the rewire didn't work, say exactly where it
 broke — the error text and the last thing that worked. That earns the point in
 full. -->
 
+In `agent.py::run_agent`, I replaced the direct `search_listings` call with `mcp_client.call_tool("search_listings", inputs)`. `mcp_server.py::search_listings` delegates to the existing `tools.search_listings` implementation, so the returned listing shape and behavior stayed the same; the before and after traces show the MCP call, and the empty-search branch still stops before `suggest_outfit`.
+
+**Repository URL submitted this unit (same repository as the previous unit):** https://github.com/xzhongMM/ai201-project2-fitfindr-starter-v2026
 
 
 ---
@@ -388,7 +397,7 @@ Try 5: Finally found the ultimate low-rise cargo pants to nail that effortless 2
 
 ## What's Still Broken
 
-No criterion missed its target in the after run. Fit-card formatting remains a residual risk because output constraints are prompted rather than checked in code; a future improvement could validate the exact metadata and sentence count and retry or repair a nonconforming card.
+No criterion missed its target in the after run. Fit-card formatting remains a residual risk because output constraints are prompted rather than checked in code; a future improvement could validate the exact metadata and sentence count and retry or repair a nonconforming card. I stopped at the prompt change because this milestone called for one measured improvement, and adding validation now would make it harder to tell which change produced the 2/5-to-5/5 result.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
