@@ -29,24 +29,32 @@ SCENARIOS = [
         "criterion": 2,
     },
     {
-        # A user with nothing saved. One of unit 4's three failure modes.
-        "name": "empty wardrobe",
-        "query": "denim jacket under $50",
-        "wardrobe": "empty",
-        "criterion": None,
+        # The same matching search repeats five times. Criterion 3.
+        "name": "selected item state handoff",
+        "query": "denim jacket",
+        "wardrobe": "example",
+        "criterion": 3,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
-    #
-    # Set "criterion" to the number in criteria.md that the scenario tests.
-    # "criterion": None means a diagnostic run — useful to have, but it isn't
-    # one of your five, and run_eval.py marks it as such in the table.
-    #
-    # For a state criterion, any normal query works — what you're checking is
-    # what ends up in the session, not what the user typed.
-    #
-    # For a fit-card criterion, you probably want the SAME query listed more
-    # than once, or several different items, depending on what your criterion
-    # actually says.
+    {
+        # Each try uses a different matching listing. Criterion 4.
+        "name": "fit cards preserve item facts",
+        "queries": [
+            "graphic tee",
+            "flannel shirt",
+            "knit cardigan",
+            "platform mary janes",
+            "cargo pants",
+        ],
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # The maximum-price filter is exercised on every search. Criterion 5.
+        "name": "maximum price is respected",
+        "query": "graphic tee under $20",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
 ]
 
 WARDROBES = ("example", "empty")
@@ -56,11 +64,19 @@ def validate() -> list[str]:
     """Complain about anything malformed, before a long run rather than during."""
     problems = []
     for i, scenario in enumerate(SCENARIOS, 1):
-        if not scenario.get("query", "").strip():
+        queries = scenario.get("queries", [scenario.get("query", "")])
+        if not queries or any(not query.strip() for query in queries):
             problems.append(f"scenario {i} has no query")
         if scenario.get("wardrobe") not in WARDROBES:
             problems.append(
                 f"scenario {i} has wardrobe {scenario.get('wardrobe')!r} — "
                 f"it should be one of {WARDROBES}"
             )
+        if scenario.get("criterion") not in range(1, 6):
+            problems.append(f"scenario {i} needs a criterion number from 1 to 5")
+
+    covered = {scenario.get("criterion") for scenario in SCENARIOS}
+    missing = sorted(set(range(1, 6)) - covered)
+    if missing:
+        problems.append(f"no scenario tests criteria: {', '.join(map(str, missing))}")
     return problems

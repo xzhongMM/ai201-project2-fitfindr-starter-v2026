@@ -201,17 +201,61 @@ $ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before tool 2 | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Session item matches item passed to outfit tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card includes exact price/platform once and has 2-4 sentences | 4 of 5 | PASS | FAIL | PASS | FAIL | PASS | MISSED (3/5) |
+| 5. Over-budget query returns no listing over the limit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+**Real output from one try**, captured in `results/run_2026-10-17_2355_before.md` by `run_eval.py::run_once`, which calls `agent.py::run_agent`. The trace lines are recorded by `trace.py::step`.
+
+**Criterion 1, Try 1**
 
 ```
+[1] search_listings (via MCP)
+     in:  {description='vintage graphic tee', size=None, max_price=30.0}
+     out: 10 items: Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey, Y2K Baby Tee — Butterfly Print … +7 more
+[2] suggest_outfit
+     in:  {new_item=Graphic Tee — 2003 Tour Bootleg Style [id=lst_006] ($24.0, depop), wardrobe={items=[10 items]}}
+[3] create_fit_card
+     out: Found this 2003 bootleg tour tee and I'm obsessed with how soft and faded it is. Just dropped it on my depop for $24. It looks so good with dark baggy denim and heavy boots for that full-on grunge look, but honestly it's just as cute dressed down with crisp khakis and chunky sneakers.
+```
 
+**Criterion 2, Try 1**
+
+```
+[1] search_listings (via MCP)
+     in:  {description='designer ballgown', size='XXS', max_price=5.0}
+     out: [] (empty)
+[2] search_results branch
+     in:  {count=0}
+     out: Nothing matched 'designer ballgown' in size XXS under $5. Try to raise your budget, drop the size or try a neighbouring one, or use broader words (e.g. 'jacket' instead of 'designer bomber jacket').
+     →    empty search, stopping
+```
+
+**Criterion 3, Try 1**
+
+```
+- selected_item: Denim Jacket — Light Wash, Cropped [id=lst_007, $42.0, poshmark]
+[2] suggest_outfit
+     in:  {new_item=Denim Jacket — Light Wash, Cropped [id=lst_007] ($42.0, poshmark), wardrobe={items=[10 items]}}
+```
+
+**Criterion 4, all five fit-card outputs**
+
+```
+Try 1: Finally found the holy grail of faded 2003 tour tees with that perfect boxy fit. Snagged this on depop for just $24 and I'm obsessed. Been living in it with baggy dark wash denim and beat-up combat boots for that ultimate grunge look, but it's also so good dressed down with crisp khakis and chunky sneakers.
+Try 2: scored this vintage woolrich red and black flannel on thredup for $22 and i’m officially living my 90s grunge dreams. throwing it on unbuttoned over a white tank with combat boots gives me all the effortless street style energy i need for fall.
+Try 3: found the ultimate chunky brown knit for $35 and honestly haven't taken it off since. wearing it open over a white tank and dark denim with combat boots for that effortless indie-sleek vibe, or buttoned up with khaki trousers for lazy coffee runs. up on depop now if you need a major fall wardrobe upgrade.
+Try 4: Found these Demonia platform Mary Janes on Depop for $55 and I'm obsessed with how chunky they look with baggy low-rise jeans and a zip hoodie. They give off the ultimate 90s grunge vibe, especially when I style them with an oversized crewneck like a dress. Such a good score for my y2k wardrobe.
+Try 5: finally found the ultimate low-rise cargos with the exact right amount of hem distressing. snagged these on poshmark for $27 and they’re giving major 2000s streetwear energy with a cropped hoodie and chunky sneakers.
+```
+
+**Criterion 5, Try 1 search output**
+
+```
+query: graphic tee under $20
+search_results (4): lst_002 Y2K Baby Tee — Butterfly Print ($18.0, depop); lst_033 Vintage Band Tee — Faded Grey ($19.0, depop); lst_017 Mesh Long-Sleeve Top — Black ($15.0, depop); lst_012 Oversized Crewneck Sweatshirt — Vintage Navy ($20.0, thredUp)
 ```
 
 ---

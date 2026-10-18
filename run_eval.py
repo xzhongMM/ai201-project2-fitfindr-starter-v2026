@@ -91,11 +91,17 @@ def main():
     rows = []
     for scenario in scenario_module.SCENARIOS:
         print(f"{scenario['name']}  ({scenario['wardrobe']} wardrobe)")
-        print(f"  query: {scenario['query']}")
+        scenario_queries = scenario.get("queries", [scenario.get("query", "")])
+        if len(scenario_queries) == 1:
+            print(f"  query: {scenario_queries[0]}")
+        else:
+            print(f"  queries: {len(scenario_queries)} (one per try)")
 
         tries = []
         for attempt in range(1, args.tries + 1):
-            record = run_once(scenario)
+            run_scenario = dict(scenario)
+            run_scenario["query"] = scenario_queries[(attempt - 1) % len(scenario_queries)]
+            record = run_once(run_scenario)
             tries.append(record)
 
             if record["crashed"]:
@@ -173,12 +179,16 @@ def write_report(rows, args):
     for row in rows:
         scenario = row["scenario"]
         lines += [f"### {scenario['name']}", "",
-                  f"- Query: `{scenario['query']}`",
+                  f"- Criterion: {scenario.get('criterion')}",
                   f"- Wardrobe: {scenario['wardrobe']}", ""]
 
         for i, record in enumerate(row["tries"], 1):
             lines.append(f"**Try {i}**")
             lines.append("")
+            query = scenario.get("queries", [scenario.get("query", "")])[(i - 1) % len(
+                scenario.get("queries", [scenario.get("query", "")])
+            )]
+            lines.append(f"- Query: `{query}`")
 
             if record["crashed"]:
                 lines += ["Crashed:", "", "```", record["crashed"], "```", ""]
@@ -189,8 +199,12 @@ def write_report(rows, args):
             lines += [
                 f"- stopped early: {'yes — ' + str(session.get('error')) if session.get('error') else 'no'}",
                 f"- selected_item: {item.get('title', '(none)')}"
-                + (f" (${item.get('price')}, {item.get('platform')})" if item else ""),
-                f"- search_results: {len(session.get('search_results') or [])}",
+                + (f" [id={item.get('id')}, ${item.get('price')}, {item.get('platform')}]" if item else ""),
+                f"- search_results ({len(session.get('search_results') or [])}): "
+                + "; ".join(
+                    f"{result.get('id')} {result.get('title')} (${result.get('price')}, {result.get('platform')})"
+                    for result in session.get("search_results") or []
+                ),
                 "",
             ]
             if session.get("outfit_suggestion"):

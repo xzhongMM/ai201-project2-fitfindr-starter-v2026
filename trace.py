@@ -83,7 +83,10 @@ def _short(value, limit: int = 110) -> str:
 
     if isinstance(value, dict):
         if "title" in value:
-            return f"{value.get('title')} (${value.get('price')}, {value.get('platform')})"
+            return (
+                f"{value.get('title')} [id={value.get('id')}] "
+                f"(${value.get('price')}, {value.get('platform')})"
+            )
         parts = []
         for key, item in list(value.items())[:6]:
             if isinstance(item, dict):
