@@ -304,10 +304,13 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     prompt = (
         f"The thrifted find:\n{_describe_item(new_item)}\n\n"
         f"How it's being styled:\n{outfit.strip()}\n\n"
-        "Write a 2-4 sentence caption for a social post about this find. "
-        f"Mention the item, the price ({price_text}) and the platform "
-        f"({new_item.get('platform', 'thrift')}) once each. Be specific about the "
-        "vibe of the outfit. Write like a real person posting, not a product "
-        "listing. No hashtags. Return only the caption."
+        "Write exactly three sentences for a social post about this find. "
+        f"Include the item's exact price string {price_text} exactly once and "
+        f"the platform string {new_item.get('platform', 'thrift')!r} exactly "
+        "once; copy both strings verbatim, preserving capitalization. Sentence "
+        "one introduces the item and its vibe, sentence two includes the exact "
+        "price and platform, and sentence three describes how the outfit works. "
+        "Write like a real person, not a product listing. No hashtags. Return "
+        "only the three-sentence caption."
     )
     return generate(prompt, system=_CAPTION_SYSTEM).strip()
