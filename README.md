@@ -41,6 +41,10 @@
 
 FitFindr takes a plain-language request for a secondhand clothing item, including optional size and budget filters. It searches and ranks the local listing data, then stops with suggestions for changing the search if nothing matches. When it finds an item, it uses the user's wardrobe to suggest outfits and generates a short fit-card caption for the find.
 
+### Community Classifier (Current Unit)
+
+The community-classifier work in this repository is intended to classify public Hacker News replies as `procedure`, `grounded_claim`, or `stance`, using the definitions and decision rule in [COMMUNITY_LABELS.md](COMMUNITY_LABELS.md). I collected 200 full comments from a public Ask HN discussion into [labels.csv](labels.csv). This is a collection checkpoint only: all 200 label cells are still blank, so no classifier has been trained and there are no `results.json` or `test_split.csv` outputs yet. The prior FitFindr `criteria.md` remains unchanged; classifier acceptance criteria are in [community_criteria.md](community_criteria.md).
+
 ---
 
 ## Tool Inventory
@@ -186,6 +190,18 @@ $ AI201_CACHE=0 ./.venv/bin/python -c "import json; from tools import create_fit
 - *What I asked for:* Compare the five before-run fit cards against the exact price, platform, and sentence-count criterion, then suggest one change tied to the misses.
 - *What came back:* Three of five cards failed: two changed platform capitalization, and one used only one sentence. The failures came from the model-output step in `create_fit_card`, where the prompt requested details but did not strongly constrain their form.
 - *What I changed:* I changed only that prompt to require exactly three sentences and verbatim, case-sensitive price and platform strings. In the after run all five cards passed those checks.
+
+**Moment 4 — Community classifier**
+
+- *What I asked for:* Help distinguish recurring, observable patterns in 30 public Hacker News posts and stress-test candidate label boundaries.
+- *What came back:* Candidate distinctions included concrete workflow vs. broad stance, specific experience/evidence vs. unsupported assertion, and context-scoped vs. universal claims. Eight fictional boundary posts were generated to test the definitions and decision rule; they are not included as dataset examples.
+- *What I changed:* I wrote the three label definitions, precedence rule, and synthetic stress test in [COMMUNITY_LABELS.md](COMMUNITY_LABELS.md). I also used an API collector to save 200 full public comments in [labels.csv](labels.csv). **No AI labels have been applied to the dataset yet**: the first 20 remain marked `cold` for unaided labeling, and the other 180 are marked `ai-pending`. I have not reviewed any prelabels, and no training run or training results are claimed.
+
+### Current Classifier Submission Status
+
+The labeled-data and training milestones are not complete. The CSV currently has 200 posts, 200 blank labels, 20 `cold` rows, and 180 `ai-pending` rows. This workspace does not contain `takemeter.ipynb`; consequently there is no trained model, `results.json`, or `test_split.csv` to submit. I stopped before assigning the cold labels because those are required to be my unaided decisions. The training notebook and completed label review are prerequisites to producing valid results.
+
+**Repository URL:** https://github.com/xzhongMM/ai201-project2-fitfindr-starter-v2026
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
